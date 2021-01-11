@@ -3,10 +3,10 @@
 Plugin Name: WP REST User Framework (nw-rest-user-api / nrua)
 Plugin URI: https://github.com/n-ice-ch/wpRestUserManagement
 Description: REST based user framework for Wordpress as backend for mobile applications. Simplified with REST requests only.
-Version: 1.2.0
+Version: 1.3.1
 Author: n-iceware.com - Evgen "EvgenDob" Dobrzhanskiy
 Author URI: https://github.com/n-ice-ch/wpRestUserManagement
-Stable tag: 1.2
+Stable tag: 1.3
 */
 
 //error_reporting(E_ALL);
@@ -66,7 +66,8 @@ $obj = new nwMain('nrua', array(
 	'modules/scripts.php',
 	'modules/helper.php',
 	'modules/settings.php',
-	//'modules/hooks.php',
+	'modules/hooks.php',
+	'modules/ajax.php',
 ), dirname(__FILE__).'/' );
  
 add_filter('plugin_action_links_'.plugin_basename(__FILE__), 'salcode_add_plugin_page_settings_link');
