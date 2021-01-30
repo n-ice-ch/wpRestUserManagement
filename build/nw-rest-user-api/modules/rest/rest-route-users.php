@@ -40,8 +40,40 @@ add_action( 'rest_api_init', function ()
 		register_rest_route( 'nw/v1', '/users/password/change', array(
 				'methods' => 'POST',
 				'callback' => 'nrua_users_password_change',
-	) );
+		) );
+		
+		register_rest_route( 'nw/v1', '/users/lastlogin/', array(
+				'methods'  => 'GET',
+				'callback' => 'nrua_users_last_login',
+		) );
+
+		// === User profile avatar
+		register_rest_route( 'nw/v1', '/users/profile/avatar', array(
+				'methods'  => 'POST',
+				'callback' => 'nrua_post_users_profile_avatar',
+		) );
+		
+		register_rest_route( 'nw/v1', '/users/profile/avatar', array(
+				'methods'  => 'GET',
+				'callback' => 'nrua_get_users_profile_avatar',
+		) );
+		
+		register_rest_route( 'nw/v1', '/users/profile/avatar', array(
+				'methods'  => 'DELETE',
+				'callback' => 'nrua_del_users_profile_avatar',
+		) );
+		
+		// === User profile data
+		register_rest_route( 'nw/v1', '/users/profile/data', array(
+				'methods'  => 'POST',
+				'callback' => 'nrua_post_users_profile_data',
+		) );
 	
+		register_rest_route( 'nw/v1', '/users/profile/data', array(
+				'methods'  => 'GET',
+				'callback' => 'nrua_get_users_profile_data',
+		) );
+		
 })
 
 ?>

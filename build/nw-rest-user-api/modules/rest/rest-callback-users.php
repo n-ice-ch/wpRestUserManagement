@@ -8,7 +8,7 @@ if ( ! defined( 'WPINC' ) ) {die;}
 
 // === Login for further REST calls ===============================================================
 function nrua_post_user_login( WP_REST_Request $request ) 
-{
+{	
 	$parameters 	= $request->get_json_params();
 	
 	$email 			= sanitize_email( 		stripslashes( $parameters['email'] ) );
@@ -152,7 +152,6 @@ function nrua_get_user_logout( $ressource )
 		return new WP_REST_Response( $response, 400 );	
 	
 	}
-
 
 	$user = wp_logout();
 	
@@ -675,6 +674,461 @@ function nrua_users_password_change( WP_REST_Request $request ){
 			return new WP_REST_Response( $response, 400 );
 		}
 	}
+}
+
+// = Get last login
+function nrua_users_last_login( WP_REST_Request $request ){
+
+	// = Validate user credentials
+	$user 		= wp_get_current_user();
+	$user_id 	= $user->ID;
+
+	if ( $user_id < 1 )
+	{
+			$response =  [
+				'code' => 400,
+				'message' => __( 'No running user session!', 'nrua' ),
+				'data' => [
+					'status' => 400
+				]
+			];
+			return new WP_REST_Response( $response, 400 );		
+	}
+	
+	$last_login = get_user_meta( $user_id, 'last_login', true );
+    $diff_login_date = human_time_diff($last_login);
+	
+	//$str_login_date = get_date_from_gmt( date( 'Y-m-d H:i:s', $last_login ), 'F j, Y H:i:s' );
+	$str_login_date = get_date_from_gmt( date( 'Y-m-d H:i:s', $last_login ), 'd. F Y, H:i:s' );
+	
+	$response =  [
+		'code' => 200,
+		'message' => __( 'Last login was ' .$str_login_date, 'nrua' ),
+		'last_login_unix' => __( $last_login, 'nrua' ),
+		'data' => [
+			'status' => 200
+		]
+	];
+	return new WP_REST_Response( $response, 200 );
+}
+
+// === Delete user avatar =========================================================================
+function nrua_del_users_profile_avatar( WP_REST_Request $request ) 
+{
+	// = Validate user credentials
+	$user 		= wp_get_current_user();
+	$user_ID 	= $user->ID;
+	
+	if ( $user_ID < 1 )
+	{
+		$response = [
+			'code' => 403,
+			'message' => __( 'No userID available!', 'nrua' ),
+			'data' => [
+				'status' => 403
+			]
+		];
+		return new WP_REST_Response( $response, 403 );
+	}
+	
+	global $wpdb;
+	$table_name = $wpdb->prefix .'nw_nrua_user_avatar';
+	$result = $wpdb->delete( $table_name, array( 'wp_user_id' => $user_ID ) );
+	
+	if ( $result === false)
+	{
+			$response = [
+			'code' => 404,
+			'message' => __( $wpdb->last_error, 'nrua' ),
+			'data' => [
+				'status' => 404
+			]
+		];
+		return new WP_REST_Response( $response, 404 );	
+		
+	} else {
+
+		$response = [
+			'code' => 200,
+			'message' => __( 'Removed user avatar successfully', 'nrua' ),
+			'result' => __( $result ),
+			'data' => [
+				'status' => 200
+			]
+		];
+		return new WP_REST_Response( $response, 200 );	
+		
+	}
+
+}
+
+// === Get user avatar ==========================================================================
+function nrua_get_users_profile_avatar( WP_REST_Request $request ) 
+{
+	// = Validate user credentials
+	$user 		= wp_get_current_user();
+	$user_ID 	= $user->ID;
+	
+	if ( $user_ID < 1 )
+	{
+		$response = [
+			'code' => 403,
+			'message' => __( 'No userID available!', 'nrua' ),
+			'data' => [
+				'status' => 403
+			]
+		];
+		return new WP_REST_Response( $response, 403 );
+	}
+
+	// = Check for existing avatar in db
+	global $wpdb;
+	$table_name = $wpdb->prefix .'nw_nrua_user_avatar';
+	$dbrow 		= $wpdb->get_row( "SELECT blob_base64, blob_size, mime_type, file_name, file_size FROM $table_name WHERE ( wp_user_id = $user_ID )" );
+	
+	if ( $dbrow !== null ) 
+	{
+		$blob_size = intval( $dbrow->blob_size );
+		$file_size = intval( $dbrow->file_size );
+		
+		$response = [
+			'code' => 200,
+			'message' => __( 'Loaded user avatar successfully', 'nrua' ),
+			'blob_base64' => __( $dbrow->blob_base64 ),
+			'blob_size' => __( $blob_size ),
+			'mime_type' => __( $dbrow->mime_type ),
+			'file_name' => __( $dbrow->file_name ),
+			'file_size' => __( $file_size ),
+			'data' => [
+				'status' => 200
+			]
+		];
+		return new WP_REST_Response( $response, 200 );
+		
+	} else {
+		$response = [
+			'code' => 404,
+			'message' => __( 'No user avatar found', 'nrua' ),
+			'data' => [
+				'status' => 404
+			]
+		];
+		return new WP_REST_Response( $response, 404 );		
+
+	}
+	
+}
+
+// === Store user avatar ==========================================================================
+function nrua_post_users_profile_avatar( WP_REST_Request $request ) 
+{
+	// = Validate user credentials
+	$user 		= wp_get_current_user();
+	$user_ID 	= $user->ID;
+	
+	if ( $user_ID < 1 )
+	{
+		$response = [
+			'code' => 403,
+			'message' => __( 'No userID available!', 'nrua' ),
+			'data' => [
+				'status' => 403
+			]
+		];
+		return new WP_REST_Response( $response, 403 );
+	}
+	
+	// = Validate request
+	$parameters 	= $request->get_json_params();
+	$file_name 		= sanitize_text_field( stripslashes( $parameters['file_name'] ) );
+	$data_base64 	= sanitize_text_field( stripslashes( $parameters['data_base64'] ) );
+	
+	// = Validate base64 string size
+	$blob_size = strlen( $data_base64 );
+	if ( $blob_size < 1 )
+	{
+		$response = [
+			'code' => 400,
+			'message' => __( 'Invalid data_base64 value!', 'nrua' ),
+			'data' => [
+				'status' => 400
+			]
+		];
+		return new WP_REST_Response( $response, 400 );		
+	}
+	
+	if ( !nrua_is_base64( $data_base64 ) )
+	{
+		$response = [
+			'code' => 400,
+			'message' => __( 'Invalid data_base64 value!', 'nrua' ),
+			'data' => [
+				'status' => 400
+			]
+		];
+		return new WP_REST_Response( $response, 400 );		
+	}
+	
+	// = Validate file size (base64 is usually 33% bigger than file size!)
+	$file_size = strlen( base64_decode( $data_base64 ) );
+	if ( ( $file_size > 257000 ) || ( strlen( $data_base64 ) > 341000 ) )
+	{
+		$response = [
+			'code' => 400,
+			'message' => __( 'Invalid data_base64 file_size! (Only 256KB allowed)', 'nrua' ),
+			'data' => [
+				'status' => 400
+			]
+		];
+		return new WP_REST_Response( $response, 400 );		
+	}	
+	
+	// = Validate file name max length
+	if ( strlen( $file_name ) > 255 )
+	{
+		$response = [
+			'code' => 400,
+			'message' => __( 'Invalid filename! (Only 255 chars allowed)', 'nrua' ),
+			'data' => [
+				'status' => 400
+			]
+		];
+		return new WP_REST_Response( $response, 400 );		
+	}
+	
+	// = Validate file mime_type
+	$imgdata = base64_decode( $data_base64 );
+	$f = finfo_open();
+	$mime_type = finfo_buffer( $f, $imgdata, FILEINFO_MIME_TYPE );
+	
+	if ( ( $mime_type !== 'image/png' ) && ( $mime_type !== 'image/jpeg' )  )
+	{
+		$response = [
+			'code' => 400,
+			'message' => __( 'Invalid data_base64 mime_type! (Only PNG or JPG allowed)', 'nrua' ),
+			'data' => [
+				'status' => 400
+			]
+		];
+		return new WP_REST_Response( $response, 400 );		
+	}	
+	
+	// = Validate file name min length
+	if ( strlen( $file_name ) < 3)
+	{
+		if ( $mime_type == 'image/png' ) 
+		{ 
+			$file_name = 'avatar.png'; 
+		}
+		
+		if ( $mime_type == 'image/jpeg' ) 
+		{ 
+			$file_name = 'avatar.jpeg'; 
+		}
+	}
+	
+	// = Get MD5 hash
+	$hash_md5 	= md5( $data_base64 );
+	$hash_md5	= strtoupper( $hash_md5 );
+
+	// = Check if update in DB is needed
+	global $wpdb;
+	$table_name = $wpdb->prefix .'nw_nrua_user_avatar';
+	$dbrow 		= $wpdb->get_row( "SELECT id, hash_md5 FROM $table_name WHERE ( wp_user_id = $user_ID )" );
+	
+	if ( $dbrow == null )
+	{
+		// = Insert new row
+		$wpdb->replace( $table_name, array( 'wp_user_id' => $user_ID, 'blob_base64' => $data_base64, 'blob_size' => $blob_size, 'mime_type' => $mime_type, 'file_name' => $file_name, 'file_size' => $file_size, 'hash_md5' => $hash_md5 ) );
+
+		if( $wpdb->last_error !== '' )
+		{
+			$response = [
+				'code' => 400,
+				'message' => __( $wpdb->print_error(), 'nrua' ),
+				'data' => [
+					'status' => 400
+				]
+			];
+			return new WP_REST_Response( $response, 400 );		
+		}
+			
+	} else {
+
+		// = Check MD5
+		if ( $hash_md5 !== $dbrow->hash_md5 )
+		{
+			// = Update
+			$dbRowID = $dbrow->id;
+			$wpdb->update($table_name, array( 'blob_base64' => $data_base64, 'blob_size' => $blob_size, 'mime_type' => $mime_type, 'file_name' => $file_name, 'file_size' => $file_size, 'hash_md5' => $hash_md5 ), array( 'id' => $dbRowID ) );
+			
+			if($wpdb->last_error !== '')
+			{
+				$response = [
+					'code' => 400,
+					'message' => __( $wpdb->print_error(), 'nrua' ),
+					'data' => [
+						'status' => 400
+					]
+				];
+				return new WP_REST_Response( $response, 400 );		
+			}
+		
+		}
+			
+	}
+	
+	$blob_size = intval( $blob_size );
+	$file_size = intval( $file_size );
+		
+	$response =  [
+		'code' 		=> 200,
+		'message' 	=> __( 'Stored user avatar successfully', 'nrua' ),
+		'hash_md5' 	=> __( $hash_md5 ),
+		'blob_size' => __( $blob_size ),
+		'mime_type' => __( $mime_type ),
+		'file_name' => __( $file_name ),
+		'file_size' => __( $file_size ),
+		'data' => [
+			'status' => 200
+		]
+	];
+	return new WP_REST_Response( $response, 200 );	
+	
+}
+
+// === Store user data ============================================================================
+function nrua_post_users_profile_data( WP_REST_Request $request ) 
+{
+
+	// = Validate user credentials
+	$user 		= wp_get_current_user();
+	$user_ID 	= $user->ID;
+	
+	if ( $user_ID < 1 )
+	{
+		$response = [
+			'code' => 403,
+			'message' => __( 'No userID available!', 'nrua' ),
+			'data' => [
+				'status' => 403
+			]
+		];
+		return new WP_REST_Response( $response, 403 );
+	}
+	
+	// = Validate request
+	$parameters 	= $request->get_json_params();
+	$first_name 	= sanitize_text_field( stripslashes( $parameters['user_firstname'] ) );
+	$last_name 		= sanitize_text_field( stripslashes( $parameters['user_lastname'] ) );
+	$gender 		= sanitize_text_field( stripslashes( $parameters['user_gender'] ) );
+	$gender 		= intval( $gender );
+	$birthday 		= sanitize_text_field( stripslashes( $parameters['user_birthday'] ) );
+	$phone_mobile	= sanitize_text_field( stripslashes( $parameters['user_phone_mobile'] ) );
+	
+	// = Validate first & lastname	
+	if( 
+		strlen( $first_name ) 	> 1 && strlen( $first_name ) 	< 255   &&
+		strlen( $last_name ) 	> 1 && strlen( $last_name ) 	< 255   ){} else {
+		
+		$response =  [
+			'code' => 406,
+			'message' => __( 'User first name and last name should be from 2 to 255 chars', 'nrua' ),
+			'data' => [
+				'status' => 400
+			]
+		];
+		return new WP_REST_Response( $response, 400 );
+	}
+
+	// = Validate gender
+	if ( ( $gender < 0 ) || ( $gender > 3 ) )
+	{
+		$gender = null;
+	}
+	
+	// = Validate birthday
+	if ( nrua_validateDate( $birthday .' 00:00:00') )
+	{
+		// = Check if birthday is in the future or before 1900?
+		$past 		= DateTime::createFromFormat( 'Y-m-d', "1900-01-01" );
+		$now       	= new DateTime();
+		$user_date 	= DateTime::createFromFormat( 'Y-m-d', $birthday );
+		if ( ( $user_date >= $now ) || ( $past >= $user_date ) )
+		{
+			$birthday = null;
+		}
+	
+	} else {
+		$birthday = null;	
+	}
+
+	// = Validate phone_mobile
+	$phone_mobile = nrua_sanitize_phone_number( $phone_mobile );
+
+	// = Update meta
+	update_user_meta( $user_ID, 'first_name', 	$first_name );
+	update_user_meta( $user_ID, 'last_name', 	$last_name );
+	update_user_meta( $user_ID, 'gender', 		$gender );	
+	update_user_meta( $user_ID, 'birthday', 	$birthday );
+	update_user_meta( $user_ID, 'phone_mobile', $phone_mobile );
+
+	// = Send response
+	$response = [
+		'code' 				=> 200,
+		'message' 			=> __( 'Stored user data successfully', 'nrua' ),
+		'user_firstname' 	=> __( $first_name, 'nrua' ),
+		'user_lastname' 	=> __( $last_name, 'nrua' ),
+		'user_gender' 		=> __( $gender, 'nrua' ),
+		'user_birthday' 	=> __( $birthday, 'nrua' ),
+		'user_phone_mobile' => __( $phone_mobile, 'nrua' ),
+		'data' => [
+			'status' => 200
+		]
+	];
+	return new WP_REST_Response( $response, 200 );	
+
+}
+
+function nrua_get_users_profile_data( WP_REST_Request $request ) 
+{
+	
+	// = Validate user credentials
+	$user 		= wp_get_current_user();
+	$user_ID 	= $user->ID;
+	
+	if ( $user_ID < 1 )
+	{
+		$response = [
+			'code' => 403,
+			'message' => __( 'No userID available!', 'nrua' ),
+			'data' => [
+				'status' => 403
+			]
+		];
+		return new WP_REST_Response( $response, 403 );
+	}
+	
+	$first_name 	= get_user_meta( $user_ID, 'first_name', true );
+	$last_name 		= get_user_meta( $user_ID, 'last_name', true );
+	$gender 		= intval( get_user_meta( $user_ID, 'gender', true ) );
+	$birthday 		= get_user_meta( $user_ID, 'birthday', true );
+	$phone_mobile	= get_user_meta( $user_ID, 'phone_mobile', true );
+	
+	$response = [
+		'code' => 400,
+		'message' => __( 'Loaded user data successfully', 'nrua' ),
+		'user_firstname' 	=> __( $first_name, 'nrua' ),
+		'user_lastname' 	=> __( $last_name, 'nrua' ),
+		'user_gender' 		=> __( $gender, 'nrua' ),
+		'user_birthday' 	=> __( $birthday, 'nrua' ),
+		'user_phone_mobile' => __( $phone_mobile, 'nrua' ),
+		'data' => [
+			'status' => 400
+		]
+	];
+	return new WP_REST_Response( $response, 400 );	
+		
 }
 
 ?>

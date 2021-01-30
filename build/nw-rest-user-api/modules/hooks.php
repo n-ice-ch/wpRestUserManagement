@@ -1,4 +1,42 @@
 <?php 
+
+/*
+add_filter( 'get_avatar' , 'my_custom_avatar' , 1 , 5 );
+ 
+function my_custom_avatar( $avatar, $id_or_email, $size, $default, $alt ) {
+    
+	$user = false;
+ 
+    if ( is_numeric( $id_or_email ) ) {
+ 
+        $id = (int) $id_or_email;
+        $user = get_user_by( 'id' , $id );
+ 
+    } elseif ( is_object( $id_or_email ) ) {
+ 
+        if ( ! empty( $id_or_email->user_id ) ) {
+            $id = (int) $id_or_email->user_id;
+            $user = get_user_by( 'id' , $id );
+        }
+ 
+    } else {
+        $user = get_user_by( 'email', $id_or_email );   
+    }
+ 
+    if ( $user && is_object( $user ) ) {
+ 
+        if ( $user->data->ID == '1' ) {
+            $avatar = 'https://act.n-iceware.net/blub2.png';
+            $avatar = "<img alt='{$alt}' src='{$avatar}' class='avatar avatar-{$size} photo' height='{$size}' width='{$size}' />";
+        }
+ 
+    }
+ 
+    return $avatar;
+}
+*/
+
+// ================================================================================
 add_filter( 'bulk_actions-users', 'nrua_user_actions' );
  
 function nrua_user_actions( $bulk_array ) {
@@ -83,4 +121,12 @@ add_action("pre_get_users", function ($WP_User_Query) {
     }
 
 }, 10, 1);
+
+// === Store last user login for every login ======================================================
+function user_last_login( $user_login, $user ) {
+    update_user_meta( $user->ID, 'last_login', time() );
+}
+add_action( 'wp_login', 'user_last_login', 10, 2 );
+
+
 ?>
